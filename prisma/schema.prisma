@@ -1,0 +1,79 @@
+// Prisma schema for Semantic Gateway
+// Run: npx prisma init
+// Then: npx prisma generate
+// Then: npx prisma db push
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  stripeCustomerId String? @unique
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  apiKeys       ApiKey[]
+  usage         ApiUsage[]
+  subscription  Subscription?
+}
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  isActive  Boolean  @default(true)
+  lastUsed  DateTime?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([key])
+}
+
+model ApiUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  url       String
+  tokensUsed Int
+  processingTimeMs Int
+  success   Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId, createdAt])
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  plan      String   // 'free', 'starter', 'pro', 'enterprise'
+  status    String   // 'active', 'canceled', 'past_due'
+  
+  stripeSubscriptionId String? @unique
+  stripePriceId        String?
+  
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  
+  queriesLimit         Int      @default(1000)
+  queriesUsed          Int      @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
