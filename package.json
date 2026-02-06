@@ -12,17 +12,17 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "next": "15.1.1",
-    "react": "19.0.0",
-    "react-dom": "19.0.0",
     "@prisma/client": "^6.1.0",
+    "next": "^16.1.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "stripe": "^17.5.0"
   },
   "devDependencies": {
-    "typescript": "^5",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "prisma": "^6.1.0"
+    "prisma": "^6.1.0",
+    "typescript": "^5"
   }
 }
