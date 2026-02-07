@@ -1,0 +1,314 @@
+[
+  {
+    "category": "restaurant",
+    "name": "Treehouse",
+    "url": "https://treehousesm.com",
+    "tokens_original": 106922,
+    "tokens_extracted": 1277,
+    "tokens_saved": 105645,
+    "tokens_saved_percent": 99,
+    "cost_saved_usd": 3.1693,
+    "processing_time_ms": 1698,
+    "status": "success"
+  }
+,
+  {
+    "category": "restaurant",
+    "name": "George's at the Cove",
+    "url": "https://www.georgesatthecove.com",
+    "tokens_original": 54950,
+    "tokens_extracted": 5056,
+    "tokens_saved": 49894,
+    "tokens_saved_percent": 91,
+    "cost_saved_usd": 1.4968,
+    "processing_time_ms": 436,
+    "status": "success"
+  }
+,
+  {
+    "category": "restaurant",
+    "name": "Catania",
+    "url": "https://www.cataniasd.com",
+    "tokens_original": 38597,
+    "tokens_extracted": 3869,
+    "tokens_saved": 34728,
+    "tokens_saved_percent": 90,
+    "cost_saved_usd": 1.0418,
+    "processing_time_ms": 443,
+    "status": "success"
+  }
+,
+  {
+    "category": "restaurant",
+    "name": "Cucina Urbana",
+    "url": "https://www.cucinaurbana.com",
+    "tokens_original": 20116,
+    "tokens_extracted": 901,
+    "tokens_saved": 19215,
+    "tokens_saved_percent": 96,
+    "cost_saved_usd": 0.5765,
+    "processing_time_ms": 686,
+    "status": "success"
+  }
+,
+  {
+    "category": "restaurant",
+    "name": "Juniper & Ivy",
+    "url": "https://juniperandivy.com",
+    "tokens_original": 11571,
+    "tokens_extracted": 1035,
+    "tokens_saved": 10536,
+    "tokens_saved_percent": 91,
+    "cost_saved_usd": 0.3161,
+    "processing_time_ms": 1155,
+    "status": "success"
+  }
+,
+  {
+    "category": "hotel",
+    "name": "Marriott",
+    "url": "https://www.marriott.com",
+    "tokens_original": 247355,
+    "tokens_extracted": 1410,
+    "tokens_saved": 245945,
+    "tokens_saved_percent": 99,
+    "cost_saved_usd": 7.3783,
+    "processing_time_ms": 521,
+    "status": "success"
+  }
+,
+  {
+    "category": "hotel",
+    "name": "Hilton",
+    "url": "https://www.hilton.com",
+    "tokens_original": 30475,
+    "tokens_extracted": 1135,
+    "tokens_saved": 29340,
+    "tokens_saved_percent": 96,
+    "cost_saved_usd": 0.8802,
+    "processing_time_ms": 10577,
+    "status": "success"
+  }
+,
+  {
+    "category": "hotel",
+    "name": "Hyatt",
+    "url": "https://www.hyatt.com",
+    "tokens_original": 3019,
+    "tokens_extracted": 451,
+    "tokens_saved": 2568,
+    "tokens_saved_percent": 85,
+    "cost_saved_usd": 0.077,
+    "processing_time_ms": 1549,
+    "status": "success"
+  }
+,
+  {
+    "category": "hotel",
+    "name": "Hotel Del Coronado",
+    "url": "https://www.hoteldel.com",
+    "tokens_original": 45487,
+    "tokens_extracted": 7069,
+    "tokens_saved": 38418,
+    "tokens_saved_percent": 84,
+    "cost_saved_usd": 1.1525,
+    "processing_time_ms": 456,
+    "status": "success"
+  }
+,
+  {
+    "category": "hotel",
+    "name": "Fairmont",
+    "url": "https://www.fairmont.com",
+    "tokens_original": 39367,
+    "tokens_extracted": 2357,
+    "tokens_saved": 37010,
+    "tokens_saved_percent": 94,
+    "cost_saved_usd": 1.1103,
+    "processing_time_ms": 669,
+    "status": "success"
+  }
+,
+  {
+    "category": "ecommerce",
+    "name": "Allbirds",
+    "url": "https://www.allbirds.com",
+    "tokens_original": 229273,
+    "tokens_extracted": 38338,
+    "tokens_saved": 190935,
+    "tokens_saved_percent": 83,
+    "cost_saved_usd": 5.728,
+    "processing_time_ms": 734,
+    "status": "success"
+  }
+,
+  {
+    "category": "ecommerce",
+    "name": "Warby Parker",
+    "url": "https://www.warbyparker.com",
+    "tokens_original": 226535,
+    "tokens_extracted": 548,
+    "tokens_saved": 225987,
+    "tokens_saved_percent": 100,
+    "cost_saved_usd": 6.7796,
+    "processing_time_ms": 910,
+    "status": "success"
+  }
+,
+  {
+    "category": "ecommerce",
+    "name": "Patagonia",
+    "url": "https://www.patagonia.com",
+    "tokens_original": 3508,
+    "tokens_extracted": 574,
+    "tokens_saved": 2934,
+    "tokens_saved_percent": 84,
+    "cost_saved_usd": 0.088,
+    "processing_time_ms": 847,
+    "status": "success"
+  }
+,
+  {
+    "category": "ecommerce",
+    "name": "Everlane",
+    "url": "https://www.everlane.com",
+    "tokens_original": 207863,
+    "tokens_extracted": 48008,
+    "tokens_saved": 159855,
+    "tokens_saved_percent": 77,
+    "cost_saved_usd": 4.7956,
+    "processing_time_ms": 518,
+    "status": "success"
+  }
+,
+  {
+    "category": "ecommerce",
+    "name": "Glossier",
+    "url": "https://www.glossier.com",
+    "tokens_original": 213608,
+    "tokens_extracted": 42059,
+    "tokens_saved": 171549,
+    "tokens_saved_percent": 80,
+    "cost_saved_usd": 5.1465,
+    "processing_time_ms": 605,
+    "status": "success"
+  }
+,
+  {
+    "category": "travel",
+    "name": "Airbnb",
+    "url": "https://www.airbnb.com",
+    "tokens_original": 153749,
+    "tokens_extracted": 947,
+    "tokens_saved": 152802,
+    "tokens_saved_percent": 99,
+    "cost_saved_usd": 4.5841,
+    "processing_time_ms": 750,
+    "status": "success"
+  }
+,
+  {
+    "category": "travel",
+    "name": "Booking.com",
+    "url": "https://www.booking.com",
+    "tokens_original": 0,
+    "tokens_extracted": 0,
+    "tokens_saved": 0,
+    "tokens_saved_percent": null,
+    "cost_saved_usd": 0,
+    "processing_time_ms": 397,
+    "status": "success"
+  }
+,
+  {
+    "category": "travel",
+    "name": "Expedia",
+    "url": "https://www.expedia.com",
+    "tokens_original": 114977,
+    "tokens_extracted": 33,
+    "tokens_saved": 114944,
+    "tokens_saved_percent": 100,
+    "cost_saved_usd": 3.4483,
+    "processing_time_ms": 799,
+    "status": "success"
+  }
+,
+  {
+    "category": "travel",
+    "name": "Kayak",
+    "url": "https://www.kayak.com",
+    "tokens_original": 395667,
+    "tokens_extracted": 4519,
+    "tokens_saved": 391148,
+    "tokens_saved_percent": 99,
+    "cost_saved_usd": 11.7344,
+    "processing_time_ms": 872,
+    "status": "success"
+  }
+,
+  {
+    "category": "news",
+    "name": "New York Times",
+    "url": "https://www.nytimes.com",
+    "tokens_original": 309739,
+    "tokens_extracted": 2069,
+    "tokens_saved": 307670,
+    "tokens_saved_percent": 99,
+    "cost_saved_usd": 9.2301,
+    "processing_time_ms": 533,
+    "status": "success"
+  }
+,
+  {
+    "category": "saas",
+    "name": "Stripe",
+    "url": "https://stripe.com",
+    "tokens_original": 140375,
+    "tokens_extracted": 3143,
+    "tokens_saved": 137232,
+    "tokens_saved_percent": 98,
+    "cost_saved_usd": 4.117,
+    "processing_time_ms": 1525,
+    "status": "success"
+  }
+,
+  {
+    "category": "saas",
+    "name": "Notion",
+    "url": "https://www.notion.so",
+    "tokens_original": 1426,
+    "tokens_extracted": 240,
+    "tokens_saved": 1186,
+    "tokens_saved_percent": 83,
+    "cost_saved_usd": 0.0356,
+    "processing_time_ms": 500,
+    "status": "success"
+  }
+,
+  {
+    "category": "saas",
+    "name": "Slack",
+    "url": "https://slack.com",
+    "tokens_original": 54346,
+    "tokens_extracted": 2378,
+    "tokens_saved": 51968,
+    "tokens_saved_percent": 96,
+    "cost_saved_usd": 1.559,
+    "processing_time_ms": 509,
+    "status": "success"
+  }
+,
+  {
+    "category": "saas",
+    "name": "Airtable",
+    "url": "https://www.airtable.com",
+    "tokens_original": 105411,
+    "tokens_extracted": 1975,
+    "tokens_saved": 103436,
+    "tokens_saved_percent": 98,
+    "cost_saved_usd": 3.1031,
+    "processing_time_ms": 452,
+    "status": "success"
+  }
+
+]
