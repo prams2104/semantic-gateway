@@ -22,7 +22,7 @@ export default function ContactPage() {
           Get started with our free tier (1,000 queries/month)
         </p>
 
-        <form action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+        <form action= "https://formspree.io/f/mbdajppa" method="POST">
           <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>
               Your Name *

@@ -44,7 +44,7 @@ export default function HomePage() {
           }}>
             View API Docs
           </a>
-          <a href="/demo" style={{
+          <a href="/contact" style={{
             padding: '15px 40px',
             background: 'rgba(255,255,255,0.2)',
             color: '#fff',
@@ -54,7 +54,7 @@ export default function HomePage() {
             fontWeight: 'bold',
             fontSize: '1.1rem'
           }}>
-            See Benchmark
+            Request Access
           </a>
         </div>
 
