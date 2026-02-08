@@ -340,7 +340,9 @@ function extractTables($: cheerio.CheerioAPI) {
     const headers: string[] = [];
     $(table)
       .find('thead th, thead td, tr:first-child th')
-      .each((_, th) => headers.push(clean($(th).text())));
+      .each((_, th) => {
+        headers.push(clean($(th).text()));
+      });
 
     const rows: string[][] = [];
     $(table)
@@ -350,7 +352,10 @@ function extractTables($: cheerio.CheerioAPI) {
         const row: string[] = [];
         $(tr)
           .find('td, th')
-          .each((_, td) => row.push(clean($(td).text())));
+          .each((_, td) => {
+            row.push(clean($(td).text()));
+          });
+        
         if (row.some(c => c)) rows.push(row);
       });
 

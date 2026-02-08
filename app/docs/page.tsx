@@ -71,10 +71,17 @@ Content-Type: application/json`}
           <pre style={{ background: '#f7f7f7', padding: '10px', borderRadius: '5px', fontSize: '0.85rem' }}>
 {`{
   "url": "https://example.com",
-  "markdown": "# Example Domain\\n\\nThis domain is...",
+  "markdown": "# Example Domain\\n> Description...\\n## Structured Data\\n...",
   "structured_data": {
     "title": "Example Domain",
-    "description": "..."
+    "description": "...",
+    "ogData": { "title": "...", "image": "..." },
+    "jsonLd": [ { "@type": "Restaurant", "name": "..." } ],
+    "contactInfo": {
+      "phones": ["(555) 123-4567"],
+      "emails": ["info@example.com"],
+      "addresses": ["123 Main St"]
+    }
   },
   "pdfs_extracted": [],
   "meta": {
@@ -84,9 +91,30 @@ Content-Type: application/json`}
     "tokens_saved": 12050,
     "tokens_saved_percent": 96,
     "cost_saved_usd": 0.3615
+  },
+  "quality": {
+    "hasMainContent": true,
+    "hasStructuredData": true,
+    "hasNavigation": true,
+    "hasContactInfo": true,
+    "contentSections": 5,
+    "informationDensity": 0.87
   }
 }`}
           </pre>
+
+          <h4 style={{ marginTop: '20px' }}>Quality Metrics</h4>
+          <p style={{ fontSize: '0.9rem', color: '#555' }}>
+            The <code>quality</code> object tells you what data was found so your agent can
+            decide whether to trust the extraction or fall back to a full browser render.
+          </p>
+          <ul style={{ fontSize: '0.9rem', color: '#555' }}>
+            <li><strong>hasMainContent</strong> — meaningful page content was extracted</li>
+            <li><strong>hasStructuredData</strong> — JSON-LD / Schema.org data found</li>
+            <li><strong>hasNavigation</strong> — site navigation links resolved</li>
+            <li><strong>hasContactInfo</strong> — phone, email, or address detected</li>
+            <li><strong>informationDensity</strong> — ratio of useful lines to total (0–1)</li>
+          </ul>
         </div>
       </section>
 
@@ -109,7 +137,8 @@ response = requests.post(
 
 data = response.json()
 print(data["markdown"])
-print(f"Saved: $\{data['meta']['cost_saved_usd']}")`}
+print(f"Saved: $\{data['meta']['cost_saved_usd']}")
+print(f"Quality: \{data['quality']}")`}
         </pre>
 
         <h3>JavaScript/Node.js</h3>
@@ -128,7 +157,12 @@ print(f"Saved: $\{data['meta']['cost_saved_usd']}")`}
 
 const data = await response.json();
 console.log(data.markdown);
-console.log(\`Saved: $\${data.meta.cost_saved_usd}\`);`}
+console.log(\`Saved: $\${data.meta.cost_saved_usd}\`);
+
+// Check extraction quality before using
+if (data.quality.hasStructuredData) {
+  console.log("Rich structured data available:", data.structured_data.jsonLd);
+}`}
         </pre>
       </section>
 
