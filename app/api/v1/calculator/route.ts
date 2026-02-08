@@ -26,6 +26,8 @@ function checkRateLimit(ip: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
+
+    const startTime = Date.now()
     // Rate limit by IP
     const ip =
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -66,7 +68,7 @@ export async function POST(request: NextRequest) {
       structured_data: extracted.structured,
       pdfs_extracted: extracted.pdfs,
       meta: {
-        processing_time_ms: Date.now(), // will be overwritten below
+        processing_time_ms: Date.now() - startTime, // will be overwritten below
         tokens_original: extracted.tokensOriginal,
         tokens_extracted: extracted.tokensExtracted,
         tokens_saved: tokensSaved,
