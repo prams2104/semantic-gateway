@@ -48,7 +48,8 @@ export default function HomePage() {
           <a href="/docs" style={{
             padding: '15px 40px',
             background: 'rgba(255,255,255,0.2)',
-            color: '#667eea',
+            color: '#fff',
+            border: '2px solid #fff',
             borderRadius: '8px',
             textDecoration: 'none',
             fontWeight: 'bold',
