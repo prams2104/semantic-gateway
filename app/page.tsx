@@ -33,6 +33,18 @@ export default function HomePage() {
         </p>
 
         <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
+        <a href="/report" style={{
+              padding: '15px 40px',
+              background: '#fff',
+              color: '#667eea',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: 'bold',
+              fontSize: '1.1rem'
+            }}>
+              Try the report
+            </a>
+          
           <a href="/calculator" style={{
               padding: '15px 40px',
               background: '#fff',
