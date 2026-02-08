@@ -1,26 +1,26 @@
 category,name,url,tokens_original,tokens_extracted,tokens_saved_percent,cost_saved_usd,processing_time_ms
-restaurant,Treehouse,https://treehousesm.com,106922,1277,99,3.1693,1698
-restaurant,George's at the Cove,https://www.georgesatthecove.com,54950,5056,91,1.4968,436
-restaurant,Catania,https://www.cataniasd.com,38597,3869,90,1.0418,443
-restaurant,Cucina Urbana,https://www.cucinaurbana.com,20116,901,96,0.5765,686
-restaurant,Juniper & Ivy,https://juniperandivy.com,11571,1035,91,0.3161,1155
-hotel,Marriott,https://www.marriott.com,247355,1410,99,7.3783,521
-hotel,Hilton,https://www.hilton.com,30475,1135,96,0.8802,10577
-hotel,Hyatt,https://www.hyatt.com,3019,451,85,0.077,1549
-hotel,Hotel Del Coronado,https://www.hoteldel.com,45487,7069,84,1.1525,456
-hotel,Fairmont,https://www.fairmont.com,39367,2357,94,1.1103,669
-ecommerce,Allbirds,https://www.allbirds.com,229273,38338,83,5.728,734
-ecommerce,Warby Parker,https://www.warbyparker.com,226535,548,100,6.7796,910
-ecommerce,Patagonia,https://www.patagonia.com,3508,574,84,0.088,847
-ecommerce,Everlane,https://www.everlane.com,207863,48008,77,4.7956,518
-ecommerce,Glossier,https://www.glossier.com,213608,42059,80,5.1465,605
-travel,Airbnb,https://www.airbnb.com,153749,947,99,4.5841,750
-travel,Booking.com,https://www.booking.com,0,0,null,0,397
-travel,Expedia,https://www.expedia.com,114977,33,100,3.4483,799
-travel,Kayak,https://www.kayak.com,395667,4519,99,11.7344,872
-news,New York Times,https://www.nytimes.com,309739,2069,99,9.2301,533
+restaurant,Treehouse,https://treehousesm.com,106924,679,99,3.1873,2124
+restaurant,George's at the Cove,https://www.georgesatthecove.com,54950,1108,98,1.6153,671
+restaurant,Catania,https://www.cataniasd.com,38597,2837,93,1.0728,579
+restaurant,Cucina Urbana,https://www.cucinaurbana.com,20116,779,96,0.5801,1230
+restaurant,Juniper & Ivy,https://juniperandivy.com,11571,1037,91,0.316,1207
+hotel,Marriott,https://www.marriott.com,247332,1518,99,7.3744,1051
+hotel,Hilton,https://www.hilton.com,ERROR,ERROR,ERROR,ERROR,ERROR
+hotel,Hyatt,https://www.hyatt.com,ERROR,ERROR,ERROR,ERROR,ERROR
+hotel,Hotel Del Coronado,https://www.hoteldel.com,45487,2912,94,1.2772,784
+hotel,Fairmont,https://www.fairmont.com,39367,519,99,1.1654,1097
+ecommerce,Allbirds,https://www.allbirds.com,229537,1278,99,6.8478,1216
+ecommerce,Warby Parker,https://www.warbyparker.com,226444,663,100,6.7734,1222
+ecommerce,Patagonia,https://www.patagonia.com,3508,337,90,0.0951,484
+ecommerce,Everlane,https://www.everlane.com,208062,5349,97,6.0814,1296
+ecommerce,Glossier,https://www.glossier.com,213613,3511,98,6.3031,941
+travel,Airbnb,https://www.airbnb.com,153765,897,99,4.586,896
+travel,Booking.com,https://www.booking.com,501,15,97,0.0146,1009
+travel,Expedia,https://www.expedia.com,ERROR,ERROR,ERROR,ERROR,ERROR
+travel,Kayak,https://www.kayak.com,1239,18,99,0.0366,464
+news,New York Times,https://www.nytimes.com,317396,5854,98,9.3463,1333
 news,Washington Post,https://www.washingtonpost.com,ERROR,ERROR,ERROR,ERROR,ERROR
-saas,Stripe,https://stripe.com,140375,3143,98,4.117,1525
-saas,Notion,https://www.notion.so,1426,240,83,0.0356,500
-saas,Slack,https://slack.com,54346,2378,96,1.559,509
-saas,Airtable,https://www.airtable.com,105411,1975,98,3.1031,452
+saas,Stripe,https://stripe.com,140375,2419,98,4.1387,1175
+saas,Notion,https://www.notion.so,47226,1417,97,1.3743,1924
+saas,Slack,https://slack.com,54345,2250,96,1.5628,671
+saas,Airtable,https://www.airtable.com,105411,8479,92,2.908,599
