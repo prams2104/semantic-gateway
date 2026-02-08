@@ -1,68 +1,492 @@
-interface ExtractionResult {
+/**
+ * Semantic Gateway — Extraction Engine v2
+ *
+ * Replaces regex-based HTML stripping with proper DOM parsing,
+ * Readability-based content extraction, and JSON-LD structured data mining.
+ *
+ * Dependencies: cheerio, @mozilla/readability, linkedom
+ */
+
+import * as cheerio from 'cheerio';
+import { Readability } from '@mozilla/readability';
+import { parseHTML } from 'linkedom';
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+export interface ExtractionResult {
   markdown: string;
   structured: {
     title?: string;
     description?: string;
+    ogData?: Record<string, string>;
+    jsonLd?: any[];
+    contactInfo?: { phones: string[]; emails: string[]; addresses: string[] };
   };
   pdfs: string[];
   tokensOriginal: number;
   tokensExtracted: number;
-}
-
-export async function extractContent(url: string, includePdfs: boolean = true): Promise<ExtractionResult> {
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'SemanticGatewayBot/1.0'
-      }
-    });
-    
-    const html = await response.text();
-    const markdown = htmlToMarkdown(html);
-    const structured = parseStructuredData(html);
-    
-    return {
-      markdown,
-      structured,
-      pdfs: [],
-      tokensOriginal: Math.ceil(html.length / 4),
-      tokensExtracted: Math.ceil(markdown.length / 4)
-    };
-  } catch (error: any) {
-    throw new Error(`Extraction failed: ${error.message}`);
-  }
-}
-
-function htmlToMarkdown(html: string): string {
-  let markdown = html;
-  
-  markdown = markdown.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-  markdown = markdown.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
-  
-  markdown = markdown.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n');
-  markdown = markdown.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n');
-  markdown = markdown.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n');
-  
-  markdown = markdown.replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n\n');
-  markdown = markdown.replace(/<[^>]+>/g, '');
-  markdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
-  
-  return markdown;
-}
-
-function parseStructuredData(html: string): ExtractionResult['structured'] {
-  const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
-  const title = titleMatch ? titleMatch[1] : undefined;
-  
-  const descriptionMatch = html.match(/<meta[^>]*name="description"[^>]*content="([^"]*)"[^>]*>/i);
-  const description = descriptionMatch ? descriptionMatch[1] : undefined;
-  
-  return {
-    title,
-    description,
+  quality: {
+    hasMainContent: boolean;
+    hasStructuredData: boolean;
+    hasNavigation: boolean;
+    hasContactInfo: boolean;
+    contentSections: number;
+    informationDensity: number;
   };
 }
 
-export function estimateStandardTokens(url: string): number {
-  return 12500;
+// ── Main entry ───────────────────────────────────────────────────────────────
+
+export async function extractContent(
+  url: string,
+  includePdfs = true
+): Promise<ExtractionResult> {
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'SemanticGatewayBot/2.0 (+https://semanticgateway.com/bot)',
+      Accept: 'text/html,application/xhtml+xml',
+    },
+    redirect: 'follow',
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+  const html = await res.text();
+  const tokensOriginal = estimateTokens(html);
+
+  if (html.trim().length < 100) {
+    return emptyResult(url, tokensOriginal);
+  }
+
+  const $ = cheerio.load(html);
+  const structured = buildStructured($, url);
+  const pdfs = includePdfs ? pdfLinks($, url) : [];
+  const markdown = buildMarkdown($, structured, url);
+  const tokensExtracted = estimateTokens(markdown);
+
+  return {
+    markdown,
+    structured,
+    pdfs,
+    tokensOriginal,
+    tokensExtracted,
+    quality: computeQuality(structured, markdown),
+  };
+}
+
+/** Backward-compat shim used by the API route for cost estimates. */
+export function estimateStandardTokens(_url: string): number {
+  // TODO: replace with per-domain average cache in production
+  return 12_500;
+}
+
+// ── Structured data extraction ───────────────────────────────────────────────
+
+function buildStructured($: cheerio.CheerioAPI, base: string) {
+  // OpenGraph
+  const ogData: Record<string, string> = {};
+  $('meta[property^="og:"]').each((_, el) => {
+    const p = $(el).attr('property')?.replace('og:', '');
+    const c = $(el).attr('content');
+    if (p && c) ogData[p] = c;
+  });
+
+  // JSON-LD (Schema.org) — the highest-signal data on any page
+  const jsonLd: any[] = [];
+  $('script[type="application/ld+json"]').each((_, el) => {
+    try {
+      const d = JSON.parse($(el).html() || '');
+      if (d['@graph']) jsonLd.push(...d['@graph']);
+      else jsonLd.push(d);
+    } catch { /* malformed JSON-LD, skip */ }
+  });
+
+  // Contact info via regex on body text
+  const bodyText = $('body').text();
+  const phones = unique(
+    (bodyText.match(/(?:\+1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g) || [])
+      .map(s => s.trim())
+      .filter(s => !/^\d{10,}$/.test(s)) // filter tracking pixel IDs
+  );
+  const emails = unique(
+    (bodyText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [])
+      .map(s => s.trim())
+  );
+  const addresses: string[] = [];
+  $('[itemprop="address"], .address, [class*="address"]').each((_, el) => {
+    const t = clean($(el).text());
+    if (t.length > 10) addresses.push(t);
+  });
+
+  return {
+    title:
+      ogData.title?.trim() ||
+      $('title').first().text()?.trim() ||
+      $('h1').first().text()?.trim(),
+    description:
+      ogData.description?.trim() ||
+      $('meta[name="description"]').attr('content')?.trim(),
+    ogData: Object.keys(ogData).length ? ogData : undefined,
+    jsonLd: jsonLd.length ? jsonLd : undefined,
+    contactInfo:
+      phones.length || emails.length || addresses.length
+        ? { phones, emails, addresses }
+        : undefined,
+  };
+}
+
+// ── Markdown assembly ────────────────────────────────────────────────────────
+
+function buildMarkdown(
+  $: cheerio.CheerioAPI,
+  data: ReturnType<typeof buildStructured>,
+  url: string
+): string {
+  const s: string[] = [];
+
+  // Title + meta
+  s.push(`# ${data.title || url}`);
+  if (data.description) s.push(`> ${data.description}\n`);
+  s.push(`Source: ${url}\n`);
+
+  // JSON-LD structured data
+  if (data.jsonLd?.length) {
+    s.push('## Structured Data');
+    for (const ld of data.jsonLd) s.push(formatJsonLd(ld));
+    s.push('');
+  }
+
+  // Navigation links (resolved to absolute URLs)
+  const nav = extractNavLinks($, url);
+  if (nav.length) {
+    s.push('## Navigation');
+    s.push(nav.map(l => `- [${l.text}](${l.href})`).join('\n'));
+    s.push('');
+  }
+
+  // Main content — try Readability first, fall back to manual
+  const readability = tryReadability($, url);
+  const manual = extractManualContent($);
+  const main =
+    readability && readability.length > (manual?.length ?? 0)
+      ? readability
+      : manual;
+
+  if (main && main.length > 50) {
+    s.push('## Content');
+    s.push(main);
+    s.push('');
+  }
+
+  // Tables
+  const tables = extractTables($);
+  if (tables.length) {
+    s.push('## Tables');
+    for (const t of tables) {
+      if (t.headers.length) {
+        s.push('| ' + t.headers.join(' | ') + ' |');
+        s.push('| ' + t.headers.map(() => '---').join(' | ') + ' |');
+      }
+      for (const r of t.rows) s.push('| ' + r.join(' | ') + ' |');
+      s.push('');
+    }
+  }
+
+  // Contact info
+  if (data.contactInfo) {
+    s.push('## Contact');
+    const ci = data.contactInfo;
+    if (ci.phones.length) s.push(`**Phone:** ${ci.phones.join(', ')}`);
+    if (ci.emails.length) s.push(`**Email:** ${ci.emails.join(', ')}`);
+    if (ci.addresses.length) s.push(`**Address:** ${ci.addresses.join('; ')}`);
+    s.push('');
+  }
+
+  // PDF document links (for downstream "unfolding" via PyMuPDF)
+  const pdfs = pdfLinks($, url);
+  if (pdfs.length) {
+    s.push('## Documents');
+    pdfs.forEach(p => s.push(`- ${p}`));
+    s.push('');
+  }
+
+  return s.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// ── Readability extraction ───────────────────────────────────────────────────
+
+function tryReadability($: cheerio.CheerioAPI, url: string): string | null {
+  try {
+    const { document } = parseHTML($.html());
+    const article = new Readability(document as any, {
+      charThreshold: 100,
+    }).parse();
+
+    if (!article?.textContent || article.textContent.trim().length < 100) {
+      return null;
+    }
+
+    const $c = cheerio.load(article.content || '');
+    const lines: string[] = [];
+
+    $c('h1, h2, h3, h4, p, li, blockquote, pre').each((_, el) => {
+      const tag = (el as any).tagName?.toLowerCase() ?? '';
+      const t = clean($c(el).text());
+      if (!t || t.length < 2) return;
+
+      const map: Record<string, string> = {
+        h1: `# ${t}`,
+        h2: `## ${t}`,
+        h3: `### ${t}`,
+        h4: `#### ${t}`,
+        li: `- ${t}`,
+        blockquote: `> ${t}`,
+      };
+      lines.push(map[tag] ?? t);
+    });
+
+    const out = dedup(lines).join('\n').trim();
+    return out.length > 50 ? out : null;
+  } catch {
+    return null;
+  }
+}
+
+// ── Manual content extraction (fallback) ─────────────────────────────────────
+
+function extractManualContent($: cheerio.CheerioAPI): string | null {
+  // Try semantic containers first
+  const selectors = [
+    'main',
+    '[role="main"]',
+    '#main-content',
+    '#content',
+    'article',
+    '.content',
+    '.main-content',
+  ];
+
+  let $target: cheerio.Cheerio<any> | null = null;
+  for (const sel of selectors) {
+    const $el = $(sel).first();
+    if ($el.length && clean($el.text()).length > 100) {
+      $target = $el;
+      break;
+    }
+  }
+
+  // Fallback: whole body with noise removed
+  if (!$target) {
+    $target = $('body').clone();
+    $target
+      .find(
+        'script, style, nav, header, footer, noscript, iframe, ' +
+          '[role="navigation"], .cookie-notice, .cookie-banner, ' +
+          '.popup, .modal, .advertisement, .ad, #sidebar, .sidebar'
+      )
+      .remove();
+  }
+
+  const lines: string[] = [];
+
+  $target
+    .find(
+      'h1, h2, h3, h4, h5, p, li, blockquote, dt, dd, figcaption, ' +
+        '[class*="price"], [class*="menu-item"], [class*="description"]'
+    )
+    .each((_, el) => {
+      const tag = (el as any).tagName?.toLowerCase() ?? '';
+      const t = clean($(el).text());
+      if (!t || t.length < 2) return;
+
+      const map: Record<string, string> = {
+        h1: `# ${t}`,
+        h2: `\n## ${t}`,
+        h3: `\n### ${t}`,
+        h4: `**${t}**`,
+        h5: `**${t}**`,
+        li: `- ${t}`,
+        blockquote: `> ${t}`,
+      };
+      lines.push(map[tag] ?? t);
+    });
+
+  const out = dedup(lines).join('\n').trim();
+  return out.length > 50 ? out : null;
+}
+
+// ── Sub-extractors ───────────────────────────────────────────────────────────
+
+function extractNavLinks($: cheerio.CheerioAPI, base: string) {
+  const seen = new Set<string>();
+  const out: { text: string; href: string }[] = [];
+
+  $('nav a[href], [role="navigation"] a[href]').each((_, el) => {
+    const text = clean($(el).text());
+    const href = resolve($(el).attr('href') || '', base);
+    if (text && text.length > 1 && href && !seen.has(text)) {
+      seen.add(text);
+      out.push({ text, href });
+    }
+  });
+  return out;
+}
+
+function extractTables($: cheerio.CheerioAPI) {
+  const tables: { headers: string[]; rows: string[][] }[] = [];
+
+  $('table').each((_, table) => {
+    const headers: string[] = [];
+    $(table)
+      .find('thead th, thead td, tr:first-child th')
+      .each((_, th) => headers.push(clean($(th).text())));
+
+    const rows: string[][] = [];
+    $(table)
+      .find('tbody tr, tr')
+      .each((i, tr) => {
+        if (i === 0 && headers.length && $(tr).find('th').length) return;
+        const row: string[] = [];
+        $(tr)
+          .find('td, th')
+          .each((_, td) => row.push(clean($(td).text())));
+        if (row.some(c => c)) rows.push(row);
+      });
+
+    if (rows.length) tables.push({ headers, rows });
+  });
+  return tables;
+}
+
+function pdfLinks($: cheerio.CheerioAPI, base: string): string[] {
+  const out: string[] = [];
+  $('a[href$=".pdf"], a[href*=".pdf?"]').each((_, el) => {
+    const href = resolve($(el).attr('href') || '', base);
+    if (href && !out.includes(href)) out.push(href);
+  });
+  return out;
+}
+
+// ── JSON-LD formatting ───────────────────────────────────────────────────────
+
+function formatJsonLd(ld: any, depth = 0): string {
+  if (!ld || typeof ld !== 'object') return '';
+
+  const p = '  '.repeat(depth);
+  const lines: string[] = [];
+  const type = ld['@type'] || '';
+
+  // Special formatting for common Schema.org types
+  if (['Restaurant', 'LocalBusiness', 'Hotel', 'FoodEstablishment'].includes(type)) {
+    if (ld.name) lines.push(`${p}**Name:** ${ld.name}`);
+    if (ld.description) lines.push(`${p}**Description:** ${ld.description}`);
+    if (ld.servesCuisine) lines.push(`${p}**Cuisine:** ${ld.servesCuisine}`);
+    if (ld.priceRange) lines.push(`${p}**Price Range:** ${ld.priceRange}`);
+    if (ld.telephone) lines.push(`${p}**Phone:** ${ld.telephone}`);
+    if (ld.address) {
+      const a = ld.address;
+      lines.push(
+        `${p}**Address:** ${[a.streetAddress, a.addressLocality, a.addressRegion, a.postalCode].filter(Boolean).join(', ')}`
+      );
+    }
+    if (ld.aggregateRating) {
+      lines.push(
+        `${p}**Rating:** ${ld.aggregateRating.ratingValue}/5 (${ld.aggregateRating.reviewCount} reviews)`
+      );
+    }
+    if (ld.openingHoursSpecification) {
+      lines.push(`${p}**Hours:**`);
+      for (const h of ([] as any[]).concat(ld.openingHoursSpecification)) {
+        const days = Array.isArray(h.dayOfWeek)
+          ? h.dayOfWeek.join(', ')
+          : h.dayOfWeek;
+        lines.push(`${p}  ${days}: ${h.opens}–${h.closes}`);
+      }
+    }
+    if (ld.hasMenu) lines.push(`${p}**Menu:** ${ld.hasMenu}`);
+  } else {
+    // Generic: output type + all string/number fields
+    if (type) lines.push(`${p}**Type:** ${type}`);
+    for (const [k, v] of Object.entries(ld)) {
+      if (k.startsWith('@')) continue;
+      if (typeof v === 'string' || typeof v === 'number') {
+        lines.push(`${p}**${k}:** ${v}`);
+      } else if (Array.isArray(v) && typeof v[0] === 'string') {
+        lines.push(`${p}**${k}:** ${v.join(', ')}`);
+      } else if (typeof v === 'object' && v !== null) {
+        lines.push(formatJsonLd(v, depth + 1));
+      }
+    }
+  }
+
+  return lines.join('\n');
+}
+
+// ── Quality metrics ──────────────────────────────────────────────────────────
+
+function computeQuality(
+  data: ReturnType<typeof buildStructured>,
+  markdown: string
+) {
+  const lines = markdown.split('\n').filter(l => l.trim().length > 0);
+  const useful = lines.filter(l => l.length > 10);
+
+  return {
+    hasMainContent:
+      markdown.includes('## Content') &&
+      (markdown.split('## Content')[1]?.trim().length ?? 0) > 100,
+    hasStructuredData: (data.jsonLd?.length ?? 0) > 0,
+    hasNavigation: markdown.includes('## Navigation'),
+    hasContactInfo: !!data.contactInfo,
+    contentSections: (markdown.match(/^## /gm) || []).length,
+    informationDensity: lines.length
+      ? +(useful.length / lines.length).toFixed(2)
+      : 0,
+  };
+}
+
+// ── Utilities ────────────────────────────────────────────────────────────────
+
+function estimateTokens(text: string): number {
+  const words = text.split(/\s+/).length;
+  return Math.ceil(Math.max(words * 1.3, text.length / 4));
+}
+
+function clean(t: string): string {
+  return t.replace(/\s+/g, ' ').trim();
+}
+
+function resolve(href: string, base: string): string {
+  try {
+    return new URL(href, base).href;
+  } catch {
+    return href;
+  }
+}
+
+function unique<T>(arr: T[]): T[] {
+  return [...new Set(arr)];
+}
+
+function dedup(lines: string[]): string[] {
+  return lines.filter((l, i) => !i || l !== lines[i - 1]);
+}
+
+function emptyResult(url: string, tokensOriginal: number): ExtractionResult {
+  return {
+    markdown: `# ${url}\n\n*No meaningful content extracted. Site may require JavaScript rendering.*`,
+    structured: { title: url },
+    pdfs: [],
+    tokensOriginal,
+    tokensExtracted: 20,
+    quality: {
+      hasMainContent: false,
+      hasStructuredData: false,
+      hasNavigation: false,
+      hasContactInfo: false,
+      contentSections: 0,
+      informationDensity: 0,
+    },
+  };
 }

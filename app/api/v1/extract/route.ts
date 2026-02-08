@@ -13,20 +13,26 @@ interface ExtractRequest {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  
+
   try {
     // 1. Validate API Key
-    const apiKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '');
-    
+    const apiKey =
+      request.headers.get('x-api-key') ||
+      request.headers.get('authorization')?.replace('Bearer ', '');
+
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'API key required. Include it in X-API-Key header or Authorization: Bearer header' },
+        {
+          error: 'API key required',
+          message:
+            'Include your key in the X-API-Key header or Authorization: Bearer header.',
+        },
         { status: 401 }
       );
     }
 
     const keyData = await getUserByApiKey(apiKey);
-    
+
     if (!keyData) {
       return NextResponse.json(
         { error: 'Invalid API key' },
@@ -36,13 +42,14 @@ export async function POST(request: NextRequest) {
 
     // 2. Check quota
     const hasQuota = await checkQuotaLimit(keyData.userId);
-    
+
     if (!hasQuota) {
       return NextResponse.json(
-        { 
+        {
           error: 'Quota exceeded',
-          message: 'You have reached your monthly query limit. Please upgrade your plan.',
-          upgrade_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing`
+          message:
+            'You have reached your monthly query limit. Please upgrade your plan.',
+          upgrade_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing`,
         },
         { status: 429 }
       );
@@ -77,29 +84,41 @@ export async function POST(request: NextRequest) {
     const tokensSaved = extracted.tokensOriginal - extracted.tokensExtracted;
     const costSaved = (tokensSaved / 1000) * 0.03;
 
-    // 6. Track usage
+    // 6. Track usage (mark as failed if we got nothing useful)
+    const isUseful = extracted.quality.hasMainContent || extracted.quality.hasStructuredData;
     await trackUsage(
       keyData.userId,
       url,
       extracted.tokensExtracted,
       processingTime,
-      true
+      isUseful
     );
 
-    // 7. Format response
-    const response = {
+    // 7. Build response
+    const sub = keyData.user.subscription;
+    const remaining = sub ? sub.queriesLimit - sub.queriesUsed - 1 : 0;
+
+    const response: Record<string, any> = {
       url,
-      ...(format === 'markdown' || format === 'both' ? { markdown: extracted.markdown } : {}),
-      ...(format === 'json' || format === 'both' ? { structured_data: extracted.structured } : {}),
+      ...(format === 'markdown' || format === 'both'
+        ? { markdown: extracted.markdown }
+        : {}),
+      ...(format === 'json' || format === 'both'
+        ? { structured_data: extracted.structured }
+        : {}),
       pdfs_extracted: extracted.pdfs,
       meta: {
         processing_time_ms: processingTime,
         tokens_original: extracted.tokensOriginal,
         tokens_extracted: extracted.tokensExtracted,
         tokens_saved: tokensSaved,
-        tokens_saved_percent: Math.round((tokensSaved / extracted.tokensOriginal) * 100),
-        cost_saved_usd: parseFloat(costSaved.toFixed(4))
-      }
+        tokens_saved_percent:
+          extracted.tokensOriginal > 0
+            ? Math.round((tokensSaved / extracted.tokensOriginal) * 100)
+            : 0,
+        cost_saved_usd: parseFloat(costSaved.toFixed(4)),
+      },
+      quality: extracted.quality,
     };
 
     return NextResponse.json(response, {
@@ -107,18 +126,20 @@ export async function POST(request: NextRequest) {
       headers: {
         'X-Processing-Time-Ms': processingTime.toString(),
         'X-Tokens-Saved': tokensSaved.toString(),
-        'X-RateLimit-Remaining': (keyData.user.subscription?.queriesLimit - keyData.user.subscription?.queriesUsed - 1).toString()
-      }
+        'X-RateLimit-Remaining': remaining.toString(),
+      },
     });
+  } catch (err: unknown) {
+    console.error('Extraction API error:', err);
 
-  } catch (error) {
-    console.error('Extraction API error:', error);
-    
+    const message =
+      err instanceof Error ? err.message : 'Unknown extraction error';
+
     return NextResponse.json(
-      { 
+      {
         error: 'Extraction failed',
-        message: error.message,
-        docs: `${process.env.NEXT_PUBLIC_APP_URL}/docs`
+        message,
+        docs: `${process.env.NEXT_PUBLIC_APP_URL}/docs`,
       },
       { status: 500 }
     );
@@ -128,11 +149,11 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   return NextResponse.json({
     name: 'Semantic Gateway API',
-    version: '1.0',
+    version: '2.0',
     endpoints: {
       extract: 'POST /api/v1/extract',
     },
     documentation: `${process.env.NEXT_PUBLIC_APP_URL}/docs`,
-    status: 'operational'
+    status: 'operational',
   });
 }
