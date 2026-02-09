@@ -466,7 +466,7 @@ function extractPhones($: cheerio.CheerioAPI): { value: string; confidence: numb
       phoneRegex.lastIndex = 0;
       while ((match = phoneRegex.exec(text)) !== null) {
         const phone = match[0].trim();
-        if (!seen.has(phone) && !/^\d{10,}$/.test(phone.replace(/\D/g, ''))) {
+        if (!seen.has(phone) && !/^\d{10,}$/.test(phone)) {
           seen.add(phone);
           results.push({ value: phone, confidence: 0.75 });
         }
