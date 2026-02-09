@@ -2,6 +2,12 @@
 
 import { useState, useRef } from 'react';
 
+interface ReservationInfo {
+  platform: string;
+  url: string;
+  confidence: number;
+}
+
 interface ReportData {
   url: string;
   markdown: string;
@@ -11,6 +17,7 @@ interface ReportData {
     ogData?: Record<string, string>;
     jsonLd?: any[];
     contactInfo?: { phones: string[]; emails: string[]; addresses: string[] };
+    reservations?: ReservationInfo[];
   };
   pdfs_extracted: string[];
   meta: {
@@ -26,6 +33,7 @@ interface ReportData {
     hasStructuredData: boolean;
     hasNavigation: boolean;
     hasContactInfo: boolean;
+    hasReservationWidget: boolean;
     contentSections: number;
     informationDensity: number;
   };
@@ -36,25 +44,27 @@ function computeVisibilityScore(data: ReportData): number {
   const q = data.quality;
   const s = data.structured_data;
   if (q.hasStructuredData) {
-    score += 20;
+    score += 18;
     const ld = s.jsonLd || [];
-    if (ld.some((l: any) => ['Restaurant','FoodEstablishment','LocalBusiness','Hotel','LodgingBusiness'].includes(l['@type']))) score += 10;
+    if (ld.some((l: any) => ['Restaurant','FoodEstablishment','LocalBusiness','Hotel','LodgingBusiness'].includes(l['@type']))) score += 8;
     if (ld.some((l: any) => l.aggregateRating)) score += 5;
     if (ld.some((l: any) => l.openingHoursSpecification)) score += 5;
   }
   if (q.hasContactInfo) {
-    if (s.contactInfo?.phones?.length) score += 8;
-    if (s.contactInfo?.emails?.length) score += 4;
-    if (s.contactInfo?.addresses?.length) score += 8;
+    if (s.contactInfo?.phones?.length) score += 7;
+    if (s.contactInfo?.emails?.length) score += 3;
+    if (s.contactInfo?.addresses?.length) score += 7;
   }
-  if (q.hasMainContent) score += 10;
-  if (q.informationDensity > 0.7) score += 5;
-  else if (q.informationDensity > 0.4) score += 3;
-  if (q.contentSections >= 3) score += 5;
-  if (data.pdfs_extracted?.length > 0) score += 5;
+  if (q.hasMainContent) score += 8;
+  if (q.informationDensity > 0.7) score += 4;
+  else if (q.informationDensity > 0.4) score += 2;
+  if (q.contentSections >= 3) score += 4;
+  if (data.pdfs_extracted?.length > 0) score += 4;
   if (s.jsonLd?.some((l: any) => l.hasMenu)) score += 5;
-  if (s.ogData && Object.keys(s.ogData).length >= 3) score += 5;
-  if (s.description && s.description.length > 20) score += 5;
+  if (s.ogData && Object.keys(s.ogData).length >= 3) score += 4;
+  if (s.description && s.description.length > 20) score += 4;
+  // Reservation / bookability — high signal for hospitality
+  if (q.hasReservationWidget) score += 9;
   return Math.min(score, 100);
 }
 
@@ -108,6 +118,10 @@ export default function ReportPage() {
       { label: 'Menu link', found: !!businessLd?.hasMenu, value: businessLd?.hasMenu || null, impact: '"What\'s on the menu?" is unanswerable without this.' },
       { label: 'Menu in PDF (needs parsing)', found: (data.pdfs_extracted?.length || 0) > 0, value: data.pdfs_extracted?.length ? `${data.pdfs_extracted.length} PDF(s) found` : null, impact: 'Your menu exists but is locked inside a PDF that AI agents cannot read.' },
     ]},
+    { category: 'Bookability', items: [
+      { label: 'Reservation widget', found: !!data.quality.hasReservationWidget, value: data.structured_data.reservations?.[0] ? `${data.structured_data.reservations[0].platform} detected` : null, impact: 'When a customer says "book me a table," agents need a reservation link to complete the action.' },
+      { label: 'Online ordering link', found: !!(businessLd?.potentialAction?.some?.((a: any) => a['@type'] === 'OrderAction')), value: businessLd?.potentialAction?.find?.((a: any) => a['@type'] === 'OrderAction') ? 'Found' : null, impact: '"Order from this restaurant" fails without a direct ordering link.' },
+    ]},
   ] : [];
 
   const totalChecks = checks.reduce((s, c) => s + c.items.length, 0);
@@ -120,13 +134,18 @@ export default function ReportPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#fafaf9', color: '#1c1917', fontFamily: "'Georgia', serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,700;9..144,900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+      <style>{`@media print {
+        .no-print { display: none !important; }
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        div { break-inside: avoid; }
+      }`}</style>
 
       <header style={{ padding: '20px 32px', borderBottom: '1px solid #e7e5e4', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
         <a href="/" style={{ color: '#1c1917', textDecoration: 'none', fontFamily: heading, fontWeight: 700, fontSize: '1.1rem' }}>Semantic Gateway</a>
         <span style={{ fontFamily: font, fontSize: '0.8rem', color: '#78716c', letterSpacing: '0.05em', textTransform: 'uppercase' }}>AI Visibility Report</span>
       </header>
 
-      <div style={{ maxWidth: '680px', margin: '0 auto', padding: '80px 24px 48px', textAlign: 'center' }}>
+      <div className="no-print" style={{ maxWidth: '680px', margin: '0 auto', padding: '80px 24px 48px', textAlign: 'center' }}>
         <h1 style={{ fontFamily: heading, fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 900, lineHeight: 1.15, marginBottom: '16px', letterSpacing: '-0.02em' }}>
           Can AI agents<br />find your business?
         </h1>
@@ -181,6 +200,10 @@ export default function ReportPage() {
               <div><span style={{ color: '#ef4444', fontWeight: 700, fontSize: '1.2rem' }}>{failedChecks}</span><div style={{ color: '#a8a29e', marginTop: '2px' }}>missing</div></div>
               <div><span style={{ fontWeight: 700, fontSize: '1.2rem', color: '#1c1917' }}>{totalChecks}</span><div style={{ color: '#a8a29e', marginTop: '2px' }}>checked</div></div>
             </div>
+            <button className="no-print" onClick={() => window.print()}
+              style={{ marginTop: '20px', padding: '10px 24px', background: 'none', border: '1px solid #d6d3d1', borderRadius: '8px', color: '#78716c', fontSize: '0.85rem', fontFamily: font, cursor: 'pointer' }}>
+              Save as PDF
+            </button>
           </div>
 
           {businessLd && (
@@ -230,6 +253,18 @@ export default function ReportPage() {
               </p>
               <p style={{ fontFamily: font, fontSize: '0.85rem', color: '#a16207', marginTop: '12px', marginBottom: 0, fontWeight: 500 }}>
                 This is the #1 thing you can fix to improve AI recommendations.
+              </p>
+            </div>
+          )}
+
+          {data.structured_data.reservations && data.structured_data.reservations.length > 0 && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '28px 32px', marginBottom: '16px' }}>
+              <h3 style={{ fontFamily: heading, fontSize: '1.1rem', fontWeight: 700, marginTop: 0, marginBottom: '12px', color: '#166534' }}>
+                Reservation widget detected
+              </h3>
+              <p style={{ fontFamily: font, fontSize: '0.9rem', color: '#78716c', lineHeight: 1.7, margin: 0 }}>
+                We found a <strong>{data.structured_data.reservations[0].platform}</strong> integration on your site.
+                This means AI agents can potentially direct customers to book with you — a strong signal for discovery.
               </p>
             </div>
           )}

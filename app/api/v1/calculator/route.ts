@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       structured_data: extracted.structured,
       pdfs_extracted: extracted.pdfs,
       meta: {
-        processing_time_ms: Date.now() - startTime, // will be overwritten below
+        processing_time_ms: Date.now() - startTime,
         tokens_original: extracted.tokensOriginal,
         tokens_extracted: extracted.tokensExtracted,
         tokens_saved: tokensSaved,
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         cost_saved_usd: parseFloat(costSaved.toFixed(4)),
       },
       quality: extracted.quality,
-    });
+    } as const);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Extraction failed';
     return NextResponse.json(

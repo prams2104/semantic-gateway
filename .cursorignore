@@ -1,0 +1,5 @@
+# Secrets — never expose to AI
+.env
+.env.local
+.env.production
+.env.*.local

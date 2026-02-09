@@ -8,8 +8,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -76,4 +77,111 @@ model Subscription {
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ── Verified Restaurant Profiles ─────────────────────────────────────────────
+
+model Restaurant {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  name          String
+  websiteUrl    String
+  
+  // Business identity
+  type          String   @default("Restaurant") // Schema.org @type
+  cuisine       String?
+  priceRange    String?                          // "$", "$$", "$$$", "$$$$"
+  description   String?
+  imageUrl      String?
+  
+  // Contact
+  phone         String?
+  email         String?
+  streetAddress String?
+  city          String?
+  state         String?
+  postalCode    String?
+  
+  // Reputation
+  ratingValue   Float?
+  reviewCount   Int?
+  
+  // External links
+  reservationUrl String?
+  orderUrl       String?
+  directionsUrl  String?
+  menuUrl        String?
+  
+  // Verification metadata
+  status        String   @default("draft") // draft, verified, published
+  lastVerified  DateTime?
+  lastAuditScore Int?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  hours          OperatingHours[]
+  menuSections   MenuSection[]
+  verifiedFields VerifiedField[]
+
+  @@index([slug])
+  @@index([status])
+}
+
+model OperatingHours {
+  id            String     @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  
+  dayOfWeek     String     // "Monday", "Tuesday", etc.
+  opens         String     // "11:00"
+  closes        String     // "22:00"
+  isClosed      Boolean    @default(false)
+  label         String?    // "Holiday hours", "Brunch", etc.
+  
+  @@index([restaurantId])
+}
+
+model MenuSection {
+  id            String     @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  
+  name          String
+  sortOrder     Int        @default(0)
+  
+  items         MenuItem[]
+  
+  @@index([restaurantId])
+}
+
+model MenuItem {
+  id            String      @id @default(cuid())
+  sectionId     String
+  section       MenuSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  
+  name          String
+  description   String?
+  price         Float?
+  currency      String      @default("USD")
+  dietaryFlags  String[]
+  available     Boolean     @default(true)
+  sortOrder     Int         @default(0)
+  
+  @@index([sectionId])
+}
+
+model VerifiedField {
+  id            String     @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  
+  fieldName     String     // "phone", "hours", "menu", "cuisine", etc.
+  provenance    String     // "owner-submitted", "json-ld-extracted", "pdf-parsed", "manual-entry"
+  confidence    Float      // 0.0 to 1.0
+  lastVerified  DateTime   @default(now())
+  notes         String?
+  
+  @@unique([restaurantId, fieldName])
+  @@index([restaurantId])
 }

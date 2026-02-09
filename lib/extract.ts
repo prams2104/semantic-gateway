@@ -13,6 +13,12 @@ import { parseHTML } from 'linkedom';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+export interface ReservationInfo {
+  platform: string;   // "opentable", "resy", "tock", "yelp", "direct"
+  url: string;
+  confidence: number; // 0.0–1.0
+}
+
 export interface ExtractionResult {
   markdown: string;
   structured: {
@@ -21,6 +27,7 @@ export interface ExtractionResult {
     ogData?: Record<string, string>;
     jsonLd?: any[];
     contactInfo?: { phones: string[]; emails: string[]; addresses: string[] };
+    reservations?: ReservationInfo[];
   };
   pdfs: string[];
   tokensOriginal: number;
@@ -30,6 +37,7 @@ export interface ExtractionResult {
     hasStructuredData: boolean;
     hasNavigation: boolean;
     hasContactInfo: boolean;
+    hasReservationWidget: boolean;
     contentSections: number;
     informationDensity: number;
   };
@@ -61,6 +69,8 @@ export async function extractContent(
 
   const $ = cheerio.load(html);
   const structured = buildStructured($, url);
+  const reservations = detectReservations($, url);
+  if (reservations.length) structured.reservations = reservations;
   const pdfs = includePdfs ? pdfLinks($, url) : [];
   const markdown = buildMarkdown($, structured, url);
   const tokensExtracted = estimateTokens(markdown);
@@ -71,7 +81,7 @@ export async function extractContent(
     pdfs,
     tokensOriginal,
     tokensExtracted,
-    quality: computeQuality(structured, markdown),
+    quality: computeQuality(structured, markdown, reservations),
   };
 }
 
@@ -119,11 +129,18 @@ function buildStructured($: cheerio.CheerioAPI, base: string) {
     if (t.length > 10) addresses.push(t);
   });
 
+  // Clean title: split on common separators and take the shortest meaningful part
+  const rawTitle =
+    ogData.title?.trim() ||
+    $('title').first().text()?.trim() ||
+    $('h1').first().text()?.trim() || '';
+  const titleParts = rawTitle.split(/\s*[|–—·]\s*/).filter(p => p.length > 1);
+  const cleanTitle = titleParts.length > 1
+    ? titleParts.reduce((a, b) => a.length <= b.length ? a : b) // shortest part is usually the brand name
+    : rawTitle;
+
   return {
-    title:
-      ogData.title?.trim() ||
-      $('title').first().text()?.trim() ||
-      $('h1').first().text()?.trim(),
+    title: cleanTitle || rawTitle,
     description:
       ogData.description?.trim() ||
       $('meta[name="description"]').attr('content')?.trim(),
@@ -133,6 +150,7 @@ function buildStructured($: cheerio.CheerioAPI, base: string) {
       phones.length || emails.length || addresses.length
         ? { phones, emails, addresses }
         : undefined,
+    reservations: undefined as ReservationInfo[] | undefined,
   };
 }
 
@@ -200,6 +218,15 @@ function buildMarkdown(
     if (ci.phones.length) s.push(`**Phone:** ${ci.phones.join(', ')}`);
     if (ci.emails.length) s.push(`**Email:** ${ci.emails.join(', ')}`);
     if (ci.addresses.length) s.push(`**Address:** ${ci.addresses.join('; ')}`);
+    s.push('');
+  }
+
+  // Reservation links
+  if (data.reservations?.length) {
+    s.push('## Reservations');
+    for (const r of data.reservations) {
+      s.push(`- **${r.platform}**: ${r.url}`);
+    }
     s.push('');
   }
 
@@ -432,7 +459,8 @@ function formatJsonLd(ld: any, depth = 0): string {
 
 function computeQuality(
   data: ReturnType<typeof buildStructured>,
-  markdown: string
+  markdown: string,
+  reservations: ReservationInfo[] = []
 ) {
   const lines = markdown.split('\n').filter(l => l.trim().length > 0);
   const useful = lines.filter(l => l.length > 10);
@@ -444,6 +472,7 @@ function computeQuality(
     hasStructuredData: (data.jsonLd?.length ?? 0) > 0,
     hasNavigation: markdown.includes('## Navigation'),
     hasContactInfo: !!data.contactInfo,
+    hasReservationWidget: reservations.length > 0,
     contentSections: (markdown.match(/^## /gm) || []).length,
     informationDensity: lines.length
       ? +(useful.length / lines.length).toFixed(2)
@@ -490,8 +519,90 @@ function emptyResult(url: string, tokensOriginal: number): ExtractionResult {
       hasStructuredData: false,
       hasNavigation: false,
       hasContactInfo: false,
+      hasReservationWidget: false,
       contentSections: 0,
       informationDensity: 0,
     },
   };
+}
+
+// ── Reservation widget detection ─────────────────────────────────────────────
+
+function detectReservations($: cheerio.CheerioAPI, base: string): ReservationInfo[] {
+  const results: ReservationInfo[] = [];
+  const seen = new Set<string>();
+
+  const platforms: { name: string; selectors: string[]; }[] = [
+    {
+      name: 'opentable',
+      selectors: [
+        'a[href*="opentable.com"]',
+        'iframe[src*="opentable.com"]',
+        '[class*="opentable"]',
+        '[id*="opentable"]',
+        'script[src*="opentable"]',
+      ],
+    },
+    {
+      name: 'resy',
+      selectors: [
+        'a[href*="resy.com"]',
+        'iframe[src*="resy.com"]',
+        '[class*="resy"]',
+        'script[src*="resy"]',
+      ],
+    },
+    {
+      name: 'tock',
+      selectors: [
+        'a[href*="exploretock.com"]',
+        'iframe[src*="exploretock.com"]',
+        'script[src*="exploretock"]',
+      ],
+    },
+    {
+      name: 'yelp-reservations',
+      selectors: [
+        'a[href*="yelp.com/reservations"]',
+      ],
+    },
+  ];
+
+  for (const platform of platforms) {
+    for (const selector of platform.selectors) {
+      $(selector).each((_, el) => {
+        const href = $(el).attr('href') || $(el).attr('src') || '';
+        const resolved = href ? resolve(href, base) : '';
+        const key = `${platform.name}:${resolved}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          results.push({
+            platform: platform.name,
+            url: resolved,
+            confidence: resolved ? 0.95 : 0.7,
+          });
+        }
+      });
+    }
+  }
+
+  // Generic "reserve" / "book a table" links (lower confidence)
+  if (results.length === 0) {
+    $('a[href]').each((_, el) => {
+      const text = clean($(el).text()).toLowerCase();
+      const href = $(el).attr('href') || '';
+      if (
+        (text.includes('reserv') || text.includes('book a table') || text.includes('book now')) &&
+        href && !href.startsWith('#') && !href.startsWith('javascript')
+      ) {
+        const resolved = resolve(href, base);
+        if (!seen.has(resolved)) {
+          seen.add(resolved);
+          results.push({ platform: 'direct', url: resolved, confidence: 0.6 });
+        }
+      }
+    });
+  }
+
+  return results;
 }
