@@ -51,8 +51,11 @@ export async function extractContent(
 ): Promise<ExtractionResult> {
   const res = await fetch(url, {
     headers: {
-      'User-Agent': 'SemanticGatewayBot/2.0 (+https://semanticgateway.com/bot)',
-      Accept: 'text/html,application/xhtml+xml',
+      'User-Agent':
+        'Mozilla/5.0 (compatible; SemanticGatewayBot/2.0; +https://semanticgateway.com/bot)',
+      Accept:
+        'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
     },
     redirect: 'follow',
     signal: AbortSignal.timeout(15_000),
