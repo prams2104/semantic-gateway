@@ -258,6 +258,83 @@ export default function AdminPage() {
     });
   };
 
+  // ── Menu helpers ──────────────────────────────────────────────────────────
+
+  const addMenuSection = () => {
+    setSelected(prev => {
+      if (!prev) return null;
+      const newSection = {
+        id: `new-${Date.now()}`,
+        name: '',
+        sortOrder: prev.menuSections.length,
+        items: [],
+      };
+      return { ...prev, menuSections: [...prev.menuSections, newSection] };
+    });
+  };
+
+  const removeMenuSection = (sectionIndex: number) => {
+    setSelected(prev => {
+      if (!prev) return null;
+      const sections = prev.menuSections.filter((_, i) => i !== sectionIndex);
+      return { ...prev, menuSections: sections };
+    });
+  };
+
+  const updateSectionName = (sectionIndex: number, name: string) => {
+    setSelected(prev => {
+      if (!prev) return null;
+      const sections = [...prev.menuSections];
+      sections[sectionIndex] = { ...sections[sectionIndex], name };
+      return { ...prev, menuSections: sections };
+    });
+  };
+
+  const addMenuItem = (sectionIndex: number) => {
+    setSelected(prev => {
+      if (!prev) return null;
+      const sections = [...prev.menuSections];
+      const section = { ...sections[sectionIndex] };
+      const newItem = {
+        id: `new-${Date.now()}-${section.items.length}`,
+        name: '',
+        description: null as string | null,
+        price: null as number | null,
+        currency: 'USD',
+        dietaryFlags: [] as string[],
+        available: true,
+        sortOrder: section.items.length,
+      };
+      section.items = [...section.items, newItem];
+      sections[sectionIndex] = section;
+      return { ...prev, menuSections: sections };
+    });
+  };
+
+  const removeMenuItem = (sectionIndex: number, itemIndex: number) => {
+    setSelected(prev => {
+      if (!prev) return null;
+      const sections = [...prev.menuSections];
+      const section = { ...sections[sectionIndex] };
+      section.items = section.items.filter((_, i) => i !== itemIndex);
+      sections[sectionIndex] = section;
+      return { ...prev, menuSections: sections };
+    });
+  };
+
+  const updateMenuItem = (sectionIndex: number, itemIndex: number, field: string, value: any) => {
+    setSelected(prev => {
+      if (!prev) return null;
+      const sections = [...prev.menuSections];
+      const section = { ...sections[sectionIndex] };
+      const items = [...section.items];
+      items[itemIndex] = { ...items[itemIndex], [field]: value };
+      section.items = items;
+      sections[sectionIndex] = section;
+      return { ...prev, menuSections: sections };
+    });
+  };
+
   // Login screen
   if (!authed) {
     return (
@@ -457,37 +534,87 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Menu sections */}
-              {selected.menuSections.length > 0 && (
-                <div style={{ marginBottom: '28px' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '12px' }}>
+              {/* Menu editor */}
+              <div style={{ marginBottom: '28px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>
                     Menu ({selected.menuSections.reduce((n, s) => n + s.items.length, 0)} items)
                   </h3>
-                  <div style={{ background: '#111', borderRadius: '10px', padding: '16px' }}>
-                    {selected.menuSections.map((sec, si) => (
-                      <div key={sec.id || si} style={{ marginBottom: si < selected.menuSections.length - 1 ? '20px' : 0 }}>
-                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-                          {sec.name}
+                  <button onClick={addMenuSection}
+                    style={{ padding: '6px 14px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem' }}>
+                    + Add Section
+                  </button>
+                </div>
+
+                {selected.menuSections.length === 0 && (
+                  <div style={{ background: '#111', borderRadius: '10px', padding: '24px', textAlign: 'center', color: '#6b7280', fontSize: '0.85rem' }}>
+                    No menu sections yet. Click &quot;+ Add Section&quot; to start building the menu.
+                  </div>
+                )}
+
+                {selected.menuSections.map((sec, si) => (
+                  <div key={sec.id || si} style={{ background: '#111', borderRadius: '10px', padding: '16px', marginBottom: '12px' }}>
+                    {/* Section header */}
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px' }}>
+                      <input
+                        value={sec.name}
+                        onChange={e => updateSectionName(si, e.target.value)}
+                        placeholder="Section name (e.g. Appetizers, Mains, Desserts)"
+                        style={{ ...inputStyle, flex: 1, fontWeight: 700, color: '#fbbf24', background: '#0a0a0a' }}
+                      />
+                      <button onClick={() => removeMenuSection(si)}
+                        style={{ padding: '6px 12px', background: '#333', color: '#f87171', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                        Remove Section
+                      </button>
+                    </div>
+
+                    {/* Items */}
+                    {sec.items.map((item, ii) => (
+                      <div key={item.id || ii} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', padding: '8px 0', borderTop: ii > 0 ? '1px solid #1e1e1e' : 'none' }}>
+                        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 90px', gap: '6px' }}>
+                          <input
+                            value={item.name}
+                            onChange={e => updateMenuItem(si, ii, 'name', e.target.value)}
+                            placeholder="Item name"
+                            style={{ ...inputStyle, fontSize: '0.85rem' }}
+                          />
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={item.price ?? ''}
+                            onChange={e => updateMenuItem(si, ii, 'price', e.target.value ? parseFloat(e.target.value) : null)}
+                            placeholder="Price"
+                            style={{ ...inputStyle, fontSize: '0.85rem', textAlign: 'right' }}
+                          />
+                          <input
+                            value={item.description ?? ''}
+                            onChange={e => updateMenuItem(si, ii, 'description', e.target.value || null)}
+                            placeholder="Description (optional)"
+                            style={{ ...inputStyle, fontSize: '0.8rem', color: '#a8a29e', gridColumn: '1 / -1' }}
+                          />
+                          <input
+                            value={item.dietaryFlags.join(', ')}
+                            onChange={e => updateMenuItem(si, ii, 'dietaryFlags', e.target.value ? e.target.value.split(',').map(s => s.trim()) : [])}
+                            placeholder="Dietary flags (e.g. GF, V, VG)"
+                            style={{ ...inputStyle, fontSize: '0.75rem', color: '#6b7280', gridColumn: '1 / -1' }}
+                          />
                         </div>
-                        {sec.items.map((item, ii) => (
-                          <div key={item.id || ii} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #1e1e1e', fontSize: '0.85rem' }}>
-                            <div>
-                              <span style={{ color: '#e8e8e8' }}>{item.name}</span>
-                              {item.description && <span style={{ color: '#6b7280', marginLeft: '8px', fontSize: '0.75rem' }}>{item.description.substring(0, 60)}{item.description.length > 60 ? '...' : ''}</span>}
-                            </div>
-                            {item.price != null && (
-                              <span style={{ color: '#22c55e', fontWeight: 600, marginLeft: '12px', whiteSpace: 'nowrap' }}>${item.price.toFixed(2)}</span>
-                            )}
-                          </div>
-                        ))}
+                        <button onClick={() => removeMenuItem(si, ii)}
+                          style={{ padding: '8px', background: 'none', color: '#6b7280', border: 'none', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}
+                          title="Remove item">
+                          &times;
+                        </button>
                       </div>
                     ))}
+
+                    {/* Add item button */}
+                    <button onClick={() => addMenuItem(si)}
+                      style={{ marginTop: '10px', padding: '6px 14px', background: '#1e1e1e', color: '#a8a29e', border: '1px dashed #333', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', width: '100%' }}>
+                      + Add Item
+                    </button>
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '6px' }}>
-                    Menu items imported via heuristic parsing. Review for accuracy before publishing.
-                  </div>
-                </div>
-              )}
+                ))}
+              </div>
 
               {/* Quick links */}
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '28px' }}>
