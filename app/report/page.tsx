@@ -39,33 +39,59 @@ interface ReportData {
   };
 }
 
+/**
+ * AI Visibility Score — 0 to 100
+ *
+ * Every point maps 1:1 to a visible check in the UI.
+ * No hidden extraction metrics. Weights reflect how AI agents
+ * actually prioritize data for restaurant discovery.
+ *
+ * Positive signals max: 100
+ * PDF penalty:          -3  (active discovery blocker)
+ * Score range:          0–100 (clamped)
+ *
+ * Business Identity  (36):  name 5, description 5, type 13, cuisine 8, price 5
+ * Contact & Location (21):  phone 8, address 9, email 4
+ * Reputation & Trust (13):  rating 8, OG image 5
+ * Operations         (20):  hours 10, menu link 10, PDF penalty −3
+ * Bookability        (10):  reservation 6, online ordering 4
+ */
 function computeVisibilityScore(data: ReportData): number {
   let score = 0;
-  const q = data.quality;
   const s = data.structured_data;
-  if (q.hasStructuredData) {
-    score += 18;
-    const ld = s.jsonLd || [];
-    if (ld.some((l: any) => ['Restaurant','FoodEstablishment','LocalBusiness','Hotel','LodgingBusiness'].includes(l['@type']))) score += 8;
-    if (ld.some((l: any) => l.aggregateRating)) score += 5;
-    if (ld.some((l: any) => l.openingHoursSpecification)) score += 5;
-  }
-  if (q.hasContactInfo) {
-    if (s.contactInfo?.phones?.length) score += 7;
-    if (s.contactInfo?.emails?.length) score += 3;
-    if (s.contactInfo?.addresses?.length) score += 7;
-  }
-  if (q.hasMainContent) score += 8;
-  if (q.informationDensity > 0.7) score += 4;
-  else if (q.informationDensity > 0.4) score += 2;
-  if (q.contentSections >= 3) score += 4;
-  if (data.pdfs_extracted?.length > 0) score += 4;
-  if (s.jsonLd?.some((l: any) => l.hasMenu)) score += 5;
-  if (s.ogData && Object.keys(s.ogData).length >= 3) score += 4;
-  if (s.description && s.description.length > 20) score += 4;
-  // Reservation / bookability — high signal for hospitality
-  if (q.hasReservationWidget) score += 9;
-  return Math.min(score, 100);
+  const ld = s.jsonLd || [];
+  const biz = ld.find((l: any) =>
+    ['Restaurant', 'FoodEstablishment', 'LocalBusiness', 'Hotel',
+     'LodgingBusiness', 'CafeOrCoffeeShop', 'BarOrPub'].includes(l['@type'])
+  );
+
+  // ── Business Identity (36 pts) ──────────────────────────────────────────
+  if (s.title)                                          score += 5;   // Business name
+  if (s.description && s.description.length > 20)       score += 5;   // Description
+  if (biz)                                              score += 13;  // Business type (Schema.org)
+  if (biz?.servesCuisine)                               score += 8;   // Cuisine type
+  if (biz?.priceRange)                                  score += 5;   // Price range
+
+  // ── Contact & Location (21 pts) ─────────────────────────────────────────
+  if (s.contactInfo?.phones?.length)                    score += 8;   // Phone
+  if (s.contactInfo?.addresses?.length || biz?.address) score += 9;   // Address
+  if (s.contactInfo?.emails?.length)                    score += 4;   // Email
+
+  // ── Reputation & Trust (13 pts) ─────────────────────────────────────────
+  if (biz?.aggregateRating)                             score += 8;   // Star rating
+  if (s.ogData?.image)                                  score += 5;   // Social preview image
+
+  // ── Operations (20 pts, −3 penalty possible) ────────────────────────────
+  if (biz?.openingHoursSpecification)                   score += 10;  // Hours of operation
+  if (biz?.hasMenu)                                     score += 10;  // Menu link (structured)
+  if ((data.pdfs_extracted?.length || 0) > 0)           score -= 3;   // PDF penalty
+
+  // ── Bookability (10 pts) ────────────────────────────────────────────────
+  if (data.quality.hasReservationWidget)                score += 6;   // Reservation widget
+  if (biz?.potentialAction?.some?.((a: any) =>
+    a['@type'] === 'OrderAction'))                      score += 4;   // Online ordering
+
+  return Math.max(0, Math.min(score, 100));
 }
 
 function getScoreColor(s: number) { return s >= 75 ? '#22c55e' : s >= 50 ? '#eab308' : s >= 25 ? '#f97316' : '#ef4444'; }
@@ -116,7 +142,7 @@ export default function ReportPage() {
     { category: 'Operations', items: [
       { label: 'Hours of operation', found: !!businessLd?.openingHoursSpecification, value: businessLd?.openingHoursSpecification ? 'Found' : null, impact: '"Are they open right now?" — agents can\'t answer this.' },
       { label: 'Menu link', found: !!businessLd?.hasMenu, value: businessLd?.hasMenu || null, impact: '"What\'s on the menu?" is unanswerable without this.' },
-      { label: 'Menu in PDF (needs parsing)', found: (data.pdfs_extracted?.length || 0) > 0, value: data.pdfs_extracted?.length ? `${data.pdfs_extracted.length} PDF(s) found` : null, impact: 'Your menu exists but is locked inside a PDF that AI agents cannot read.' },
+      { label: 'Menu not trapped in PDF', found: (data.pdfs_extracted?.length || 0) === 0, value: (data.pdfs_extracted?.length || 0) === 0 ? 'No PDF traps detected' : `${data.pdfs_extracted.length} PDF(s) found — penalty applied`, impact: 'Your menu is locked inside a PDF that AI agents cannot read. This is the #1 thing you can fix.' },
     ]},
     { category: 'Bookability', items: [
       { label: 'Reservation widget', found: !!data.quality.hasReservationWidget, value: data.structured_data.reservations?.[0] ? `${data.structured_data.reservations[0].platform} detected` : null, impact: 'When a customer says "book me a table," agents need a reservation link to complete the action.' },
