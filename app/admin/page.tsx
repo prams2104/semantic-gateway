@@ -202,6 +202,12 @@ export default function AdminPage() {
               sortOrder: j,
             })),
           })),
+          verifiedFields: selected.verifiedFields.map(vf => ({
+            fieldName: vf.fieldName,
+            provenance: vf.provenance,
+            confidence: Math.max(0, Math.min(1, parseFloat(String(vf.confidence)) || 0)),
+            notes: vf.notes,
+          })),
         }),
       });
       if (!res.ok) throw new Error('Save failed');
@@ -334,6 +340,24 @@ export default function AdminPage() {
       return { ...prev, menuSections: sections };
     });
   };
+
+  const updateVerifiedField = (vfId: string, field: string, value: any) => {
+    setSelected(prev => {
+      if (!prev) return null;
+      const verifiedFields = prev.verifiedFields.map(vf =>
+        vf.id === vfId ? { ...vf, [field]: value } : vf
+      );
+      return { ...prev, verifiedFields };
+    });
+  };
+
+  const PROVENANCE_OPTIONS = [
+    { value: 'owner-submitted', label: 'Owner verified', icon: '✓' },
+    { value: 'manual-entry', label: 'Manual entry', icon: '✏' },
+    { value: 'json-ld-extracted', label: 'JSON-LD extracted', icon: '📋' },
+    { value: 'heuristic-parsed', label: 'Heuristic parsed', icon: '🤖' },
+    { value: 'regex-body-text', label: 'Regex / body text', icon: '🔍' },
+  ];
 
   // Login screen
   if (!authed) {
@@ -639,19 +663,66 @@ export default function AdminPage() {
                 </a>
               </div>
 
-              {/* Verified fields display */}
+              {/* Verified fields — editable */}
               {selected.verifiedFields.length > 0 && (
                 <div>
                   <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '12px' }}>Verified Fields</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
-                    {selected.verifiedFields.map(vf => (
-                      <div key={vf.id} style={{ background: '#111', borderRadius: '8px', padding: '10px 14px' }}>
-                        <div style={{ fontSize: '0.8rem', fontWeight: 600, textTransform: 'capitalize' }}>{vf.fieldName}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                          {(vf.confidence * 100).toFixed(0)}% · {vf.provenance}
+                  <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '12px' }}>
+                    Edit confidence (0–1), provenance, and notes. Click Save to persist.
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+                    {selected.verifiedFields.map(vf => {
+                      const conf = Math.max(0, Math.min(1, Number(vf.confidence) || 0));
+                      const nextDue = vf.lastVerified ? new Date(new Date(vf.lastVerified).getTime() + 30 * 24 * 60 * 60 * 1000) : null;
+                      const provOpt = PROVENANCE_OPTIONS.find(p => p.value === vf.provenance) || PROVENANCE_OPTIONS[1];
+                      return (
+                        <div key={vf.id} style={{ background: '#111', borderRadius: '8px', padding: '14px', border: '1px solid #222' }}>
+                          <div style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'capitalize', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span title={provOpt.label}>{provOpt.icon}</span> {vf.fieldName}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div>
+                              <label style={{ fontSize: '0.65rem', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Confidence (0–1)</label>
+                              <input
+                                type="number"
+                                min={0}
+                                max={1}
+                                step={0.1}
+                                value={conf}
+                                onChange={e => updateVerifiedField(vf.id, 'confidence', Math.max(0, Math.min(1, parseFloat(e.target.value) || 0)))}
+                                style={{ ...inputStyle, width: '100%', fontSize: '0.85rem', padding: '6px 10px' }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '0.65rem', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Provenance</label>
+                              <select
+                                value={vf.provenance}
+                                onChange={e => updateVerifiedField(vf.id, 'provenance', e.target.value)}
+                                style={{ ...inputStyle, width: '100%', fontSize: '0.8rem', padding: '6px 10px' }}
+                              >
+                                {PROVENANCE_OPTIONS.map(p => (
+                                  <option key={p.value} value={p.value}>{p.icon} {p.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '0.65rem', color: '#6b7280', display: 'block', marginBottom: '2px' }}>Notes</label>
+                              <input
+                                value={vf.notes ?? ''}
+                                onChange={e => updateVerifiedField(vf.id, 'notes', e.target.value || null)}
+                                placeholder="Optional"
+                                style={{ ...inputStyle, width: '100%', fontSize: '0.8rem', padding: '6px 10px', color: '#a8a29e' }}
+                              />
+                            </div>
+                            {nextDue && (
+                              <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+                                Verify by {nextDue.toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

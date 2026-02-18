@@ -241,7 +241,7 @@ export default async function RestaurantProfilePage({
                     <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '4px', textTransform: 'capitalize' }}>{vf.fieldName}</div>
                     <div style={{ fontSize: '0.75rem', color: '#78716c' }}>
                       <span style={{ color: vf.confidence >= 0.9 ? '#22c55e' : vf.confidence >= 0.7 ? '#eab308' : '#f97316' }}>
-                        {(vf.confidence * 100).toFixed(0)}%
+                        {(Math.max(0, Math.min(1, vf.confidence)) * 100).toFixed(0)}%
                       </span>
                       {' · '}
                       {vf.provenance.replace(/-/g, ' ')}

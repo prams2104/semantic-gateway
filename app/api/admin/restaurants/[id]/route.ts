@@ -164,6 +164,7 @@ export async function PUT(
   // Update verified fields if provided (upsert each)
   if (verifiedFields) {
     for (const vf of verifiedFields) {
+      const confidence = Math.max(0, Math.min(1, parseFloat(vf.confidence) || 0));
       await prisma.verifiedField.upsert({
         where: {
           restaurantId_fieldName: {
@@ -172,16 +173,16 @@ export async function PUT(
           },
         },
         update: {
-          provenance: vf.provenance,
-          confidence: parseFloat(vf.confidence),
+          provenance: vf.provenance || 'manual-entry',
+          confidence,
           lastVerified: new Date(),
           notes: vf.notes || null,
         },
         create: {
           restaurantId: id,
           fieldName: vf.fieldName,
-          provenance: vf.provenance,
-          confidence: parseFloat(vf.confidence),
+          provenance: vf.provenance || 'manual-entry',
+          confidence,
           notes: vf.notes || null,
         },
       });
